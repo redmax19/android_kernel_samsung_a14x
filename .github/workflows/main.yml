@@ -1,0 +1,52 @@
+name: Build Exynos Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      GITHUB_BRANCH:
+        description: 'Branch of github repo to clone'
+        required: true
+        default: '-b main'
+      
+      GITHUB_REPO:
+        description: 'Github repo to clone'
+        required: true
+        default: 'https://github.com/redmax19/android_kernel_samsung_a14x'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: 1️⃣ Checkout code
+        uses: actions/checkout@v7
+
+      - name: 2️⃣ Installing packages
+        run: |
+          sudo apt update -y && sudo apt install -y openjdk-25-jdk libghc-libyaml-dev libyaml-dev qtbase5-dev qtbase5-dev-tools pkg-config libc6-dev-i386 apt-utils nano bison ca-certificates curl flex gcc git libc6-dev libssl-dev openssl ssh wget zip zstd sudo make clang gcc-arm-linux-gnueabi software-properties-common build-essential libarchive-tools gcc-aarch64-linux-gnu libffi-dev libncurses5-dev zlib1g zlib1g-dev libreadline-dev libbz2-dev libsqlite3-dev pigz python3 cpio lld p7zip-full xz-utils tar libelf-dev libudev-dev libpci-dev libiberty-dev pkg-config llvm clang-tools fakeroot ccache libcap-dev libunwind-dev gawk bc u-boot-tools device-tree-compiler liblzma-dev git-lfs python3-pip pahole -y
+          git lfs install
+
+      - name: 3️⃣ Cloning kernel source
+        run: |
+          sudo git clone ${{ github.event.inputs.GITHUB_BRANCH }} ${{ github.event.inputs.GITHUB_REPO }} kernel_source
+
+      - name: 5️⃣ Cloning samsung toolchain
+        run: |
+          cd kernel_source
+          sudo git clone --depth 1 --single-branch -b clang-r450784d_linux-x86 https://github.com/SN-Abdullah-Al-Noman/samsung-toolchain toolchain
+
+      - name: 6️⃣ Compiling kernel
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        run: |
+          cd kernel_source
+          sudo touch logs.txt && sudo chmod a+w logs.txt
+          sudo bash build_kernel.sh |& tee logs.txt
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+         name: Image.gz-a14x
+         path: |
+          out/arch/arm64/boot/Image
+          out/arch/arm64/boot/Image.gz
