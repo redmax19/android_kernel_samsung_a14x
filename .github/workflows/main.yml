@@ -7,7 +7,7 @@ on:
         description: 'Branch of github repo to clone'
         required: true
         default: '-b main'
-      
+
       GITHUB_REPO:
         description: 'Github repo to clone'
         required: true
@@ -21,32 +21,69 @@ jobs:
       - name: 1️⃣ Checkout code
         uses: actions/checkout@v7
 
-      - name: 2️⃣ Installing packages
+      - name: 2️⃣ Cloning kernel source
         run: |
-          sudo apt update -y && sudo apt install -y openjdk-25-jdk libghc-libyaml-dev libyaml-dev qtbase5-dev qtbase5-dev-tools pkg-config libc6-dev-i386 apt-utils nano bison ca-certificates curl flex gcc git libc6-dev libssl-dev openssl ssh wget zip zstd sudo make clang gcc-arm-linux-gnueabi software-properties-common build-essential libarchive-tools gcc-aarch64-linux-gnu libffi-dev libncurses5-dev zlib1g zlib1g-dev libreadline-dev libbz2-dev libsqlite3-dev pigz python3 cpio lld p7zip-full xz-utils tar libelf-dev libudev-dev libpci-dev libiberty-dev pkg-config llvm clang-tools fakeroot ccache libcap-dev libunwind-dev gawk bc u-boot-tools device-tree-compiler liblzma-dev git-lfs python3-pip pahole -y
-          git lfs install
+          git clone \
+            ${{ github.event.inputs.GITHUB_BRANCH }} \
+            ${{ github.event.inputs.GITHUB_REPO }} \
+            kernel_source
 
-      - name: 3️⃣ Cloning kernel source
-        run: |
-          sudo git clone ${{ github.event.inputs.GITHUB_BRANCH }} ${{ github.event.inputs.GITHUB_REPO }} kernel_source
-
-      - name: 5️⃣ Cloning samsung toolchain
+      - name: 3️⃣ Cloning Samsung toolchain
         run: |
           cd kernel_source
-          sudo git clone --depth 1 --single-branch -b clang-r450784d_linux-x86 https://github.com/SN-Abdullah-Al-Noman/samsung-toolchain toolchain
 
-      - name: 6️⃣ Compiling kernel
+          git clone \
+            --depth 1 \
+            --single-branch \
+            -b clang-r450784d_linux-x86 \
+            https://github.com/SN-Abdullah-Al-Noman/samsung-toolchain \
+            toolchain
+
+      - name: 4️⃣ Compiling kernel
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
         run: |
           cd kernel_source
-          sudo touch logs.txt && sudo chmod a+w logs.txt
-          sudo bash build_kernel.sh |& tee logs.txt
 
-      - name: Upload Kernel Artifact
+          touch logs.txt
+
+          bash build_kernel.sh |& tee logs.txt
+
+      - name: 5️⃣ Get kernel Image
+        run: |
+          BOOT_DIR="kernel_source/out/arch/arm64/boot"
+
+          echo "Kernel output:"
+          ls -lah "$BOOT_DIR" || true
+
+          if [ ! -f "$BOOT_DIR/Image" ]; then
+            echo "ERROR: Image não foi gerada."
+
+            echo "Procurando outputs:"
+            find kernel_source/out/arch/arm64/boot \
+              -type f \
+              \( -name "Image" -o -name "Image.gz" -o -name "Image.gz-dtb" \) \
+              -print || true
+
+            exit 1
+          fi
+
+          mkdir -p artifacts
+          cp "$BOOT_DIR/Image" artifacts/Image
+
+          ls -lh artifacts/Image
+
+      - name: 6️⃣ Upload kernel Image
         uses: actions/upload-artifact@v4
         with:
-         name: Image.gz-a14x
-         path: |
-          out/arch/arm64/boot/Image
-          out/arch/arm64/boot/Image.gz
+          name: Galaxy-A14-Kernel-Image
+          path: artifacts/Image
+          if-no-files-found: error
+
+      - name: 7️⃣ Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-Build-Log
+          path: kernel_source/logs.txt
+          if-no-files-found: ignore
