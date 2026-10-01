@@ -1,9 +1,8 @@
 #!/bin/bash
 
-export PATH=$(pwd)/toolchain/clang/host/linux-x86/clang-r450784d/bin:$PATH
-export PATH=$(pwd)/toolchain/build/kernel/build-tools/path/linux-x86/:$PATH
-export HOSTCFLAGS="--sysroot=$(pwd)/toolchain/build/kernel/build-tools/sysroot -I$(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/include"
-export HOSTLDFLAGS="--sysroot=$(pwd)/toolchain/build/kernel/build-tools/sysroot  -Wl,-rpath,$(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/lib64 -L $(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/lib64 -fuse-ld=lld --rtlib=compiler-rt"
+export PATH="$(pwd)/toolchain/clang/host/linux-x86/clang-r450784d/bin:$PATH"
+export LD_LIBRARY_PATH="$(pwd)/toolchain/clang/host/linux-x86/clang-r450784d/lib64:${LD_LIBRARY_PATH:-}"
+export CC="$(pwd)/toolchain/clang/host/linux-x86/clang-r450784d/bin/clang"
 
 export DTC_FLAGS="-@"
 export PLATFORM_VERSION=13
@@ -12,5 +11,8 @@ export LLVM=1
 export DEPMOD=depmod
 export ARCH=arm64
 export TARGET_SOC=s5e8535
-make O=out s5e8535-a14xxx_defconfig
-make O=out -j$(nproc --all)
+
+make -j$(nproc) O="$(pwd)/out" ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="$CC" s5e8535-a14xxx_defconfig
+make -j$(nproc) O="$(pwd)/out" ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="$CC" Image
+
+cp out/arch/arm64/boot/Image $(pwd)/arch/arm64/boot/Image
