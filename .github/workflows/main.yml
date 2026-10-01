@@ -8,30 +8,13 @@ jobs:
     name: Build
 
     runs-on: ubuntu-24.04
-    env:
-      TOOLCHAIN_URI: "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/a71fa4c09d7109d611ee63964fc9fca58fee38cd/clang-r450784d.tar.gz"
-      ARCH: arm64
-      LLVM: 1
-      LLVM_IAS: 1
 
     steps:
     - name: Checkout
       uses: actions/checkout@v7
 
-    - name: Cache toolchain
-      id: cache-toolchain
-      uses: actions/cache@v5
-      with:
-        path: toolchain
-        key: toolchain-${{ env.TOOLCHAIN_URI }}
-    - name: Get toolchain
-      if: steps.cache-toolchain.outputs.cache-hit != 'true'
-      run: |
-        mkdir --parents toolchain/clang/host/linux-x86
-        curl --silent "${{ env.TOOLCHAIN_URI }}" | tar --extract --directory=toolchain/clang/host/linux-x86 --gzip
-
-    - name: Setup toolchain path
-      run: echo "${{ github.workspace }}/toolchain/clang/host/linux-x86/bin" >> $GITHUB_PATH
+    - name: toolchain
+      run: git clone https://github.com/SN-Abdullah-Al-Noman/samsung-toolchain toolchain
 
     - name: AnyKernel3
       run: git clone https://github.com/osm0sis/AnyKernel3
@@ -40,9 +23,7 @@ jobs:
       run: curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
 
     - name: Build
-      run: |
-        make O=out s5e8535-a14xxx_defconfig
-        make O=out --jobs=$(nproc) Image
+      run: bash build_kernel.sh
 
     - name: Build AnyKernel package
       run: |
